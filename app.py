@@ -11,21 +11,21 @@ class PLCData(BaseModel):
     hum: float
     dew: float
 
-# 🔥 przechowywanie danych w pamięci
-database = []
+# 🔥 TYLKO JEDEN REKORD
+latest_data = {}
 
 @app.post("/api/data")
 async def receive_data(data: PLCData):
+    global latest_data
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    record = {
+    latest_data = {
         "time": timestamp,
         "temp": data.temp,
         "hum": data.hum,
         "dew": data.dew
     }
-
-    database.append(record)
 
     print(
         f"[{timestamp}] 🌡️ TEMP: {data.temp}°C | "
@@ -33,12 +33,11 @@ async def receive_data(data: PLCData):
         f"🌫️ DEW: {data.dew}°C"
     )
 
-    return {"status": "ok", "message": "Dane zapisane"}
+    return {"status": "ok"}
 
-# 🔥 NOWY ENDPOINT
 @app.get("/api/data")
 async def get_data():
-    return database
+    return latest_data
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
