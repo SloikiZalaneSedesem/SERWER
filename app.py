@@ -11,9 +11,21 @@ class PLCData(BaseModel):
     hum: float
     dew: float
 
+# 🔥 przechowywanie danych w pamięci
+database = []
+
 @app.post("/api/data")
 async def receive_data(data: PLCData):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    record = {
+        "time": timestamp,
+        "temp": data.temp,
+        "hum": data.hum,
+        "dew": data.dew
+    }
+
+    database.append(record)
 
     print(
         f"[{timestamp}] 🌡️ TEMP: {data.temp}°C | "
@@ -22,6 +34,11 @@ async def receive_data(data: PLCData):
     )
 
     return {"status": "ok", "message": "Dane zapisane"}
+
+# 🔥 NOWY ENDPOINT
+@app.get("/api/data")
+async def get_data():
+    return database
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
