@@ -92,13 +92,53 @@ async def dashboard():
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { background:#0d1117; color:white; font-family:Arial; margin:0; }
-h1 { text-align:center; padding:20px; }
-.values { display:flex; justify-content:center; gap:30px; flex-wrap:wrap; margin-bottom:30px; }
-.box { background:#161b22; padding:20px 35px; border-radius:10px; font-size:26px; }
-.chart-wrapper { max-width:1100px; margin:40px auto; }
-canvas { width:100%!important; height:280px!important; }
-a { color:cyan; text-decoration:none; font-size:18px; }
+body {
+    background:#0d1117;
+    color:white;
+    font-family:Arial;
+    margin:0;
+}
+
+h1 {
+    text-align:center;
+    padding:20px;
+}
+
+.top-bar {
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.top-bar a {
+    color:cyan;
+    text-decoration:none;
+    font-size:16px;
+}
+
+.values {
+    display:flex;
+    justify-content:center;
+    gap:30px;
+    flex-wrap:wrap;
+    margin-bottom:30px;
+}
+
+.box {
+    background:#161b22;
+    padding:18px 30px;
+    border-radius:10px;
+    font-size:24px;
+}
+
+.chart-wrapper {
+    max-width:1000px;
+    margin:30px auto;
+}
+
+canvas {
+    width:100% !important;
+    height:250px !important;
+}
 </style>
 </head>
 
@@ -106,26 +146,51 @@ a { color:cyan; text-decoration:none; font-size:18px; }
 
 <h1>📡 MONITORING PLC</h1>
 
-<div style="text-align:center; margin-bottom:20px;">
-<a href="/download">⬇ Pobierz dzisiejszy raport CSV</a>
+<div class="top-bar">
+    <a href="/download">⬇ Pobierz dzisiejszy raport CSV</a>
 </div>
 
 <div class="values">
-<div class="box">🌡 Temp<br><span id="tempNow">--</span> °C</div>
-<div class="box">💧 Wilg<br><span id="humNow">--</span> %</div>
-<div class="box">🌫 Rosa<br><span id="dewNow">--</span> °C</div>
+    <div class="box">🌡 Temp<br><span id="tempNow">--</span> °C</div>
+    <div class="box">💧 Wilg<br><span id="humNow">--</span> %</div>
+    <div class="box">🌫 Rosa<br><span id="dewNow">--</span> °C</div>
 </div>
 
 <div class="chart-wrapper">
-<canvas id="tempChart"></canvas>
+    <canvas id="tempChart"></canvas>
+</div>
+
+<div class="chart-wrapper">
+    <canvas id="humChart"></canvas>
+</div>
+
+<div class="chart-wrapper">
+    <canvas id="dewChart"></canvas>
 </div>
 
 <script>
-const chart = new Chart(document.getElementById('tempChart'), {
-    type:'line',
-    data:{ labels:[], datasets:[{ label:'Temperatura', data:[], borderColor:'lime', tension:0.4 }] },
-    options:{ animation:false }
-});
+
+function createChart(id, label, color){
+    return new Chart(document.getElementById(id), {
+        type:'line',
+        data:{ labels:[], datasets:[{
+            label:label,
+            data:[],
+            borderColor:color,
+            tension:0.4,
+            pointRadius:0
+        }]},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:false
+        }
+    });
+}
+
+const tempChart = createChart("tempChart","Temperatura (°C)","lime");
+const humChart = createChart("humChart","Wilgotność (%)","cyan");
+const dewChart = createChart("dewChart","Punkt rosy (°C)","orange");
 
 async function update(){
     const res = await fetch('/api/history');
@@ -134,6 +199,8 @@ async function update(){
 
     const labels = data.map(d=>d.time);
     const temps = data.map(d=>d.temp);
+    const hums = data.map(d=>d.hum);
+    const dews = data.map(d=>d.dew);
 
     const last = data[data.length-1];
 
@@ -141,13 +208,32 @@ async function update(){
     document.getElementById("humNow").innerText = last.hum.toFixed(2);
     document.getElementById("dewNow").innerText = last.dew.toFixed(2);
 
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = temps;
-    chart.update();
+    function apply(chart, values){
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const buffer = 2;
+
+        chart.options.scales = {
+            y: {
+                min: min - buffer,
+                max: max + buffer
+            }
+        };
+
+        chart.update();
+    }
+
+    apply(tempChart, temps);
+    apply(humChart, hums);
+    apply(dewChart, dews);
 }
 
 setInterval(update,2000);
 update();
+
 </script>
 
 </body>
@@ -158,3 +244,4 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
