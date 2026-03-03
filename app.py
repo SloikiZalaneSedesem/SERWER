@@ -24,9 +24,10 @@ def save_to_csv(record):
     filename = f"data_{today}.csv"
     file_exists = os.path.isfile(filename)
 
-    with open(filename, mode="a", newline="", encoding="utf-8") as file:
+    with open(filename, mode="a", newline="", encoding="utf-8-sig") as file:
         writer = csv.writer(file, delimiter=';')
 
+        # Nagłówek tylko przy tworzeniu pliku
         if not file_exists:
             writer.writerow([
                 "Data i czas",
@@ -37,13 +38,13 @@ def save_to_csv(record):
 
         full_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # ✅ liczby jako liczby (bez zamiany na string)
         writer.writerow([
             full_datetime,
-            record["temp"],
-            record["hum"],
-            record["dew"]
+            round(record["temp"], 2),
+            round(record["hum"], 2),
+            round(record["dew"], 2)
         ])
-
 # ===== ODBIÓR DANYCH =====
 @app.post("/api/data")
 async def receive_data(data: PLCData):
@@ -198,57 +199,39 @@ const tempChart = createChart("tempChart","Temperatura (°C)","lime");
 const humChart = createChart("humChart","Wilgotność (%)","cyan");
 const dewChart = createChart("dewChart","Punkt rosy (°C)","orange");
 
-async function update(){
-    const res = await fetch('/api/history');
-    const data = await res.json();
-    if(data.length===0) return;
+def save_to_csv(record):
+    today = datetime.now().strftime("%Y-%m-%d")
+    filename = f"data_{today}.csv"
+    file_exists = os.path.isfile(filename)
 
-    const labels = data.map(d=>d.time);
-    const temps = data.map(d=>d.temp);
-    const hums = data.map(d=>d.hum);
-    const dews = data.map(d=>d.dew);
+    with open(filename, mode="a", newline="", encoding="utf-8-sig") as file:
+        writer = csv.writer(file, delimiter=';')
 
-    const last = data[data.length-1];
+        if not file_exists:
+            writer.writerow([
+                "Data i czas",
+                "Temperatura [°C]",
+                "Wilgotność [%]",
+                "Punkt rosy [°C]"
+            ])
 
-    document.getElementById("tempNow").innerText = last.temp.toFixed(2);
-    document.getElementById("humNow").innerText = last.hum.toFixed(2);
-    document.getElementById("dewNow").innerText = last.dew.toFixed(2);
+        full_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    function apply(chart, values){
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
+        # Zamiana kropki na przecinek (Excel PL)
+        temp = str(record["temp"]).replace(".", ",")
+        hum = str(record["hum"]).replace(".", ",")
+        dew = str(record["dew"]).replace(".", ",")
 
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const buffer = 2;
-
-        chart.options.scales = {
-            y: {
-                min: min - buffer,
-                max: max + buffer
-            }
-        };
-
-        chart.update();
-    }
-
-    apply(tempChart, temps);
-    apply(humChart, hums);
-    apply(dewChart, dews);
-}
-
-setInterval(update,2000);
-update();
-
-</script>
-
-</body>
-</html>
-"""
-
+        writer.writerow([
+            full_datetime,
+            temp,
+            hum,
+            dew
+        ])
 # ===== START =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
 
 
