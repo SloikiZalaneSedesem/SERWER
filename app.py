@@ -14,29 +14,33 @@ class PLCData(BaseModel):
     dew: float
 
 # ===== TYLKO OSTATNI POMIAR =====
-latest_data = {}
-
-# ===== ODBIÓR DANYCH =====
 @app.post("/api/data")
 async def receive_data(data: PLCData):
-    global latest_data
+    global latest_data, history
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%H:%M:%S")
 
-    latest_data = {
+    record = {
         "time": timestamp,
         "temp": data.temp,
         "hum": data.hum,
         "dew": data.dew
     }
 
-    print(
-        f"[{timestamp}] 🌡️ TEMP: {data.temp}°C | "
-        f"💧 HUM: {data.hum}% | "
-        f"🌫️ DEW: {data.dew}°C"
-    )
+    latest_data = record
+
+    history.append(record)
+
+    # trzymamy tylko ostatnie 100 pomiarów
+    if len(history) > 100:
+        history.pop(0)
+
+    print(f"[{timestamp}] TEMP: {data.temp}°C")
 
     return {"status": "ok"}
+    @app.get("/api/history")
+async def get_history():
+    return history
 
 # ===== API DO PODGLĄDU JSON =====
 @app.get("/api/data")
@@ -52,69 +56,69 @@ async def dashboard():
     <head>
         <title>Monitor PLC</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
             body {
-                font-family: Arial, sans-serif;
+                font-family: Arial;
                 text-align: center;
                 background: #111;
                 color: white;
+            }
+            canvas {
+                max-width: 90%;
                 margin-top: 40px;
             }
-            h1 {
-                margin-bottom: 40px;
-            }
-            .box {
-                font-size: 36px;
-                margin: 25px;
-                padding: 20px;
-                border-radius: 10px;
-                background: #1e1e1e;
-                box-shadow: 0 0 15px rgba(0,255,150,0.2);
-            }
-            .label {
-                font-size: 20px;
-                color: #aaa;
-            }
         </style>
-        <script>
-            async function fetchData() {
-                const response = await fetch('/api/data');
-                const data = await response.json();
-
-                if (data.temp !== undefined) {
-                    document.getElementById('temp').innerText = data.temp + " °C";
-                    document.getElementById('hum').innerText = data.hum + " %";
-                    document.getElementById('dew').innerText = data.dew + " °C";
-                }
-            }
-
-            setInterval(fetchData, 2000);
-            window.onload = fetchData;
-        </script>
     </head>
     <body>
-        <h1>📡 MONITORING PLC</h1>
 
-        <div class="box">
-            <div class="label">Temperatura</div>
-            <div id="temp">--</div>
-        </div>
+        <h1>📈 Wykres Temperatury</h1>
+        <canvas id="tempChart"></canvas>
 
-        <div class="box">
-            <div class="label">Wilgotność</div>
-            <div id="hum">--</div>
-        </div>
+        <script>
+            const ctx = document.getElementById('tempChart').getContext('2d');
 
-        <div class="box">
-            <div class="label">Punkt rosy</div>
-            <div id="dew">--</div>
-        </div>
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        data: [],
+                        borderColor: 'lime',
+                        borderWidth: 2,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { ticks: { color: 'white' } },
+                        y: { ticks: { color: 'white' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    }
+                }
+            });
+
+            async function updateChart() {
+                const response = await fetch('/api/history');
+                const data = await response.json();
+
+                chart.data.labels = data.map(d => d.time);
+                chart.data.datasets[0].data = data.map(d => d.temp);
+                chart.update();
+            }
+
+            setInterval(updateChart, 2000);
+            updateChart();
+        </script>
 
     </body>
     </html>
     """
-
 # ===== START (Render) =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
