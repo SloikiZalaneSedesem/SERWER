@@ -31,9 +31,9 @@ async def receive_data(data: PLCData):
     }
 
     print(
-        f"[{timestamp}] 🌡️ TEMPERATURA: {data.temp}°C | "
-        f"💧 WILGOTNOŚĆ: {data.hum}% | "
-        f"🌫️ PUNKT ROSY: {data.dew}°C"
+        f"[{timestamp}] 🌡️ TEMP: {data.temp}°C | "
+        f"💧 HUM: {data.hum}% | "
+        f"🌫️ DEW: {data.dew}°C"
     )
 
     return {"status": "ok"}
