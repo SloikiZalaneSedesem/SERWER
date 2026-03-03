@@ -17,7 +17,7 @@ class PLCData(BaseModel):
 latest_data = {}
 history = []
 
-# ===== POST =====
+# ===== ODBIÓR DANYCH =====
 @app.post("/api/data")
 async def receive_data(data: PLCData):
     global latest_data, history
@@ -34,6 +34,7 @@ async def receive_data(data: PLCData):
     latest_data = record
     history.append(record)
 
+    # trzymamy tylko ostatnie 100 pomiarów
     if len(history) > 100:
         history.pop(0)
 
@@ -41,12 +42,12 @@ async def receive_data(data: PLCData):
 
     return {"status": "ok"}
 
-# ===== GET AKTUALNE =====
+# ===== AKTUALNE DANE =====
 @app.get("/api/data")
 async def get_data():
     return latest_data
 
-# ===== GET HISTORIA =====
+# ===== HISTORIA =====
 @app.get("/api/history")
 async def get_history():
     return history
@@ -63,20 +64,34 @@ async def dashboard():
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
             body {
-                font-family: Arial;
+                font-family: Arial, sans-serif;
                 text-align: center;
                 background: #111;
                 color: white;
             }
+            h1 {
+                margin-top: 20px;
+            }
+            .current {
+                font-size: 26px;
+                margin: 20px;
+            }
             canvas {
-                max-width: 90%;
-                margin-top: 40px;
+                max-width: 95%;
+                margin-top: 30px;
             }
         </style>
     </head>
     <body>
 
-        <h1>📈 Wykres Temperatury</h1>
+        <h1>📡 MONITORING PLC</h1>
+
+        <div class="current">
+            🌡 Temperatura: <span id="tempNow">--</span> °C |
+            💧 Wilgotność: <span id="humNow">--</span> % |
+            🌫 Punkt rosy: <span id="dewNow">--</span> °C
+        </div>
+
         <canvas id="tempChart"></canvas>
 
         <script>
@@ -91,16 +106,25 @@ async def dashboard():
                         data: [],
                         borderColor: 'lime',
                         borderWidth: 2,
-                        tension: 0.2
+                        tension: 0.4,
+                        pointRadius: 2
                     }]
                 },
                 options: {
+                    responsive: true,
+                    animation: false,
                     scales: {
-                        x: { ticks: { color: 'white' } },
-                        y: { ticks: { color: 'white' } }
+                        x: {
+                            ticks: { color: 'white' }
+                        },
+                        y: {
+                            ticks: { color: 'white' }
+                        }
                     },
                     plugins: {
-                        legend: { labels: { color: 'white' } }
+                        legend: {
+                            labels: { color: 'white' }
+                        }
                     }
                 }
             });
@@ -109,8 +133,27 @@ async def dashboard():
                 const response = await fetch('/api/history');
                 const data = await response.json();
 
-                chart.data.labels = data.map(d => d.time);
-                chart.data.datasets[0].data = data.map(d => d.temp);
+                const temps = data.map(d => d.temp);
+                const labels = data.map(d => d.time);
+
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = temps;
+
+                if (data.length > 0) {
+                    const last = data[data.length - 1];
+
+                    document.getElementById("tempNow").innerText = last.temp;
+                    document.getElementById("humNow").innerText = last.hum;
+                    document.getElementById("dewNow").innerText = last.dew;
+
+                    const minTemp = Math.min(...temps);
+                    const maxTemp = Math.max(...temps);
+                    const buffer = 2;
+
+                    chart.options.scales.y.min = minTemp - buffer;
+                    chart.options.scales.y.max = maxTemp + buffer;
+                }
+
                 chart.update();
             }
 
