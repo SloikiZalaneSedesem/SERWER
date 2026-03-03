@@ -59,7 +59,6 @@ body {{
     color: white;
     font-family: Arial, sans-serif;
     margin: 0;
-    transition: background 0.5s;
 }}
 
 h1 {{
@@ -69,48 +68,42 @@ h1 {{
 
 .status {{
     text-align: center;
-    font-size: 20px;
-    margin-bottom: 10px;
+    font-size: 18px;
+    margin-bottom: 15px;
 }}
 
-.online {{
-    color: lime;
-}}
-
-.offline {{
-    color: red;
-}}
+.online {{ color: lime; }}
+.offline {{ color: red; }}
 
 .values {{
     display: flex;
     justify-content: center;
-    gap: 40px;
+    gap: 30px;
     flex-wrap: wrap;
     margin-bottom: 30px;
 }}
 
 .box {{
     background: #161b22;
-    padding: 25px 40px;
-    border-radius: 12px;
-    font-size: 30px;
-    box-shadow: 0 0 15px rgba(0,255,150,0.2);
-    transition: 0.3s;
+    padding: 20px 35px;
+    border-radius: 10px;
+    font-size: 26px;
+    box-shadow: 0 0 12px rgba(0,255,150,0.2);
 }}
 
 .alarm {{
     background: #5c0000 !important;
-    box-shadow: 0 0 25px red !important;
+    box-shadow: 0 0 20px red !important;
 }}
 
-.chart-container {{
-    width: 95%;
-    margin: 50px auto;
+.chart-wrapper {{
+    max-width: 1100px;
+    margin: 40px auto;
 }}
 
 canvas {{
     width: 100% !important;
-    height: 400px !important;
+    height: 280px !important;
 }}
 </style>
 </head>
@@ -120,7 +113,7 @@ canvas {{
 <h1>📡 MONITORING PLC</h1>
 
 <div class="status">
-    Status: <span id="statusText" class="offline">OFFLINE</span>
+Status: <span id="statusText" class="offline">OFFLINE</span>
 </div>
 
 <div class="values">
@@ -129,15 +122,15 @@ canvas {{
     <div class="box">🌫 Rosa<br><span id="dewNow">--</span> °C</div>
 </div>
 
-<div class="chart-container">
+<div class="chart-wrapper">
     <canvas id="tempChart"></canvas>
 </div>
 
-<div class="chart-container">
+<div class="chart-wrapper">
     <canvas id="humChart"></canvas>
 </div>
 
-<div class="chart-container">
+<div class="chart-wrapper">
     <canvas id="dewChart"></canvas>
 </div>
 
@@ -162,6 +155,7 @@ function createChart(canvasId, label, color) {{
         }},
         options: {{
             responsive: true,
+            maintainAspectRatio: false,
             animation: false,
             scales: {{
                 x: {{
@@ -199,6 +193,52 @@ async function updateCharts() {{
     document.getElementById("tempNow").innerText = last.temp.toFixed(2);
     document.getElementById("humNow").innerText = last.hum.toFixed(2);
     document.getElementById("dewNow").innerText = last.dew.toFixed(2);
+
+    const now = Date.now() / 1000;
+    const diff = now - last.timestamp_raw;
+    const statusText = document.getElementById("statusText");
+
+    if (diff < 15) {{
+        statusText.innerText = "ONLINE";
+        statusText.className = "online";
+    }} else {{
+        statusText.innerText = "OFFLINE";
+        statusText.className = "offline";
+    }}
+
+    const tempBox = document.getElementById("tempBox");
+    if (last.temp > ALARM_TEMP) {{
+        tempBox.classList.add("alarm");
+    }} else {{
+        tempBox.classList.remove("alarm");
+    }}
+
+    function updateChart(chart, values) {{
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const buffer = 2;
+
+        chart.options.scales.y.min = min - buffer;
+        chart.options.scales.y.max = max + buffer;
+
+        chart.update();
+    }}
+
+    updateChart(tempChart, temps);
+    updateChart(humChart, hums);
+    updateChart(dewChart, dews);
+}}
+
+setInterval(updateCharts, 2000);
+updateCharts();
+
+</script>
+</body>
+</html>
+"""
 
     // ===== STATUS ONLINE/OFFLINE =====
     const now = Date.now() / 1000;
@@ -252,3 +292,4 @@ updateCharts();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
