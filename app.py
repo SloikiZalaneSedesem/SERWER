@@ -7,13 +7,17 @@ import uvicorn
 
 app = FastAPI()
 
-# ===== MODEL DANYCH =====
+# ===== MODEL =====
 class PLCData(BaseModel):
     temp: float
     hum: float
     dew: float
 
-# ===== TYLKO OSTATNI POMIAR =====
+# ===== DANE =====
+latest_data = {}
+history = []
+
+# ===== POST =====
 @app.post("/api/data")
 async def receive_data(data: PLCData):
     global latest_data, history
@@ -28,26 +32,26 @@ async def receive_data(data: PLCData):
     }
 
     latest_data = record
-
     history.append(record)
 
-    # trzymamy tylko ostatnie 100 pomiarów
     if len(history) > 100:
         history.pop(0)
 
     print(f"[{timestamp}] TEMP: {data.temp}°C")
 
     return {"status": "ok"}
-    @app.get("/api/history")
-async def get_history():
-    return history
 
-# ===== API DO PODGLĄDU JSON =====
+# ===== GET AKTUALNE =====
 @app.get("/api/data")
 async def get_data():
     return latest_data
 
-# ===== DASHBOARD WWW =====
+# ===== GET HISTORIA =====
+@app.get("/api/history")
+async def get_history():
+    return history
+
+# ===== DASHBOARD =====
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
     return """
@@ -117,8 +121,8 @@ async def dashboard():
     </body>
     </html>
     """
-# ===== START (Render) =====
+
+# ===== START =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
-
