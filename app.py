@@ -7,28 +7,33 @@ import uvicorn
 
 app = FastAPI()
 
+# ===== MODEL =====
 class PLCData(BaseModel):
     temp: float
     hum: float
     dew: float
 
+# ===== DANE =====
 latest_data = {}
 history = []
 
-ALARM_TEMP = 30  # <- próg alarmu temperatury (zmień jak chcesz)
+ALARM_TEMP = 30  # próg alarmu
 
+# ===== ODBIÓR DANYCH =====
 @app.post("/api/data")
 async def receive_data(data: PLCData):
     global latest_data, history
 
-    timestamp = datetime.now().strftime("%H:%M:%S")
+    now = datetime.now()
+    timestamp_str = now.strftime("%H:%M:%S")
+    timestamp_raw = now.timestamp()
 
     record = {
-        "time": timestamp,
+        "time": timestamp_str,
         "temp": round(data.temp, 2),
         "hum": round(data.hum, 2),
         "dew": round(data.dew, 2),
-        "timestamp_raw": datetime.now().timestamp()
+        "timestamp_raw": timestamp_raw
     }
 
     latest_data = record
@@ -39,13 +44,15 @@ async def receive_data(data: PLCData):
 
     return {"status": "ok"}
 
+# ===== HISTORIA =====
 @app.get("/api/history")
 async def get_history():
     return history
 
+# ===== DASHBOARD =====
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
-    return f"""
+    return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -54,57 +61,57 @@ async def dashboard():
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {{
+body {
     background: #0d1117;
     color: white;
     font-family: Arial, sans-serif;
     margin: 0;
-}}
+}
 
-h1 {{
+h1 {
     text-align: center;
     padding: 20px;
-}}
+}
 
-.status {{
+.status {
     text-align: center;
     font-size: 18px;
     margin-bottom: 15px;
-}}
+}
 
-.online {{ color: lime; }}
-.offline {{ color: red; }}
+.online { color: lime; }
+.offline { color: red; }
 
-.values {{
+.values {
     display: flex;
     justify-content: center;
     gap: 30px;
     flex-wrap: wrap;
     margin-bottom: 30px;
-}}
+}
 
-.box {{
+.box {
     background: #161b22;
     padding: 20px 35px;
     border-radius: 10px;
     font-size: 26px;
     box-shadow: 0 0 12px rgba(0,255,150,0.2);
-}}
+}
 
-.alarm {{
+.alarm {
     background: #5c0000 !important;
     box-shadow: 0 0 20px red !important;
-}}
+}
 
-.chart-wrapper {{
+.chart-wrapper {
     max-width: 1100px;
     margin: 40px auto;
-}}
+}
 
-canvas {{
+canvas {
     width: 100% !important;
     height: 280px !important;
-}}
+}
 </style>
 </head>
 
@@ -136,49 +143,49 @@ Status: <span id="statusText" class="offline">OFFLINE</span>
 
 <script>
 
-const ALARM_TEMP = {ALARM_TEMP};
+const ALARM_TEMP = 30;
 
-function createChart(canvasId, label, color) {{
+function createChart(canvasId, label, color) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-    return new Chart(ctx, {{
+    return new Chart(ctx, {
         type: 'line',
-        data: {{
+        data: {
             labels: [],
-            datasets: [{{
+            datasets: [{
                 label: label,
                 data: [],
                 borderColor: color,
                 borderWidth: 2,
                 tension: 0.4,
                 pointRadius: 0
-            }}]
-        }},
-        options: {{
+            }]
+        },
+        options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            scales: {{
-                x: {{
-                    ticks: {{ color: '#aaa' }},
-                    grid: {{ color: '#222' }}
-                }},
-                y: {{
-                    ticks: {{ color: '#aaa' }},
-                    grid: {{ color: '#222' }}
-                }}
-            }},
-            plugins: {{
-                legend: {{ labels: {{ color: 'white' }} }}
-            }}
-        }}
-    }});
-}}
+            scales: {
+                x: {
+                    ticks: { color: '#aaa' },
+                    grid: { color: '#222' }
+                },
+                y: {
+                    ticks: { color: '#aaa' },
+                    grid: { color: '#222' }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: 'white' } }
+            }
+        }
+    });
+}
 
 const tempChart = createChart("tempChart", "Temperatura (°C)", "lime");
 const humChart = createChart("humChart", "Wilgotność (%)", "cyan");
 const dewChart = createChart("dewChart", "Punkt rosy (°C)", "orange");
 
-async function updateCharts() {{
+async function updateCharts() {
     const response = await fetch('/api/history');
     const data = await response.json();
     if (data.length === 0) return;
@@ -198,22 +205,22 @@ async function updateCharts() {{
     const diff = now - last.timestamp_raw;
     const statusText = document.getElementById("statusText");
 
-    if (diff < 15) {{
+    if (diff < 15) {
         statusText.innerText = "ONLINE";
         statusText.className = "online";
-    }} else {{
+    } else {
         statusText.innerText = "OFFLINE";
         statusText.className = "offline";
-    }}
+    }
 
     const tempBox = document.getElementById("tempBox");
-    if (last.temp > ALARM_TEMP) {{
+    if (last.temp > ALARM_TEMP) {
         tempBox.classList.add("alarm");
-    }} else {{
+    } else {
         tempBox.classList.remove("alarm");
-    }}
+    }
 
-    function updateChart(chart, values) {{
+    function updateChart(chart, values) {
         chart.data.labels = labels;
         chart.data.datasets[0].data = values;
 
@@ -225,12 +232,12 @@ async function updateCharts() {{
         chart.options.scales.y.max = max + buffer;
 
         chart.update();
-    }}
+    }
 
     updateChart(tempChart, temps);
     updateChart(humChart, hums);
     updateChart(dewChart, dews);
-}}
+}
 
 setInterval(updateCharts, 2000);
 updateCharts();
@@ -240,56 +247,7 @@ updateCharts();
 </html>
 """
 
-    // ===== STATUS ONLINE/OFFLINE =====
-    const now = Date.now() / 1000;
-    const diff = now - last.timestamp_raw;
-
-    const statusText = document.getElementById("statusText");
-
-    if (diff < 15) {{
-        statusText.innerText = "ONLINE";
-        statusText.className = "online";
-    }} else {{
-        statusText.innerText = "OFFLINE";
-        statusText.className = "offline";
-    }}
-
-    // ===== ALARM =====
-    const tempBox = document.getElementById("tempBox");
-    if (last.temp > ALARM_TEMP) {{
-        tempBox.classList.add("alarm");
-    }} else {{
-        tempBox.classList.remove("alarm");
-    }}
-
-    function updateChart(chart, values) {{
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const buffer = 2;
-
-        chart.options.scales.y.min = min - buffer;
-        chart.options.scales.y.max = max + buffer;
-
-        chart.update();
-    }}
-
-    updateChart(tempChart, temps);
-    updateChart(humChart, hums);
-    updateChart(dewChart, dews);
-}}
-
-setInterval(updateCharts, 2000);
-updateCharts();
-
-</script>
-</body>
-</html>
-"""
-
+# ===== START =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
-
