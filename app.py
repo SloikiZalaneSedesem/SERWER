@@ -1,48 +1,3 @@
-import os
-from datetime import datetime
-from fastapi import FastAPI
-from pydantic import BaseModel
-import uvicorn
-
-app = FastAPI()
-
-class PLCData(BaseModel):
-    temp: float
-    hum: float
-    dew: float
-
-# 🔥 TYLKO JEDEN REKORD
-latest_data = {}
-
-@app.post("/api/data")
-async def receive_data(data: PLCData):
-    global latest_data
-
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    latest_data = {
-        "time": timestamp,
-        "temp": data.temp,
-        "hum": data.hum,
-        "dew": data.dew
-    }
-
-    print(
-        f"[{timestamp}] 🌡️ TEMP: {data.temp}°C | "
-        f"💧 HUM: {data.hum}% | "
-        f"🌫️ DEW: {data.dew}°C"
-    )
-
-    return {"status": "ok"}
-
-@app.get("/api/data")
-async def get_data():
-    return latest_data
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
-
 from fastapi.responses import HTMLResponse
 
 @app.get("/", response_class=HTMLResponse)
@@ -51,19 +6,30 @@ async def dashboard():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>PLC Monitor</title>
+        <title>Monitor PLC</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             body {
-                font-family: Arial;
+                font-family: Arial, sans-serif;
                 text-align: center;
                 background: #111;
                 color: white;
-                margin-top: 50px;
+                margin-top: 40px;
+            }
+            h1 {
+                margin-bottom: 40px;
             }
             .box {
-                font-size: 40px;
-                margin: 20px;
+                font-size: 36px;
+                margin: 25px;
+                padding: 20px;
+                border-radius: 10px;
+                background: #1e1e1e;
+                box-shadow: 0 0 15px rgba(0,255,150,0.2);
+            }
+            .label {
+                font-size: 20px;
+                color: #aaa;
             }
         </style>
         <script>
@@ -71,9 +37,11 @@ async def dashboard():
                 const response = await fetch('/api/data');
                 const data = await response.json();
 
-                document.getElementById('temp').innerText = data.temp + " °C";
-                document.getElementById('hum').innerText = data.hum + " %";
-                document.getElementById('dew').innerText = data.dew + " °C";
+                if (data.temp !== undefined) {
+                    document.getElementById('temp').innerText = data.temp + " °C";
+                    document.getElementById('hum').innerText = data.hum + " %";
+                    document.getElementById('dew').innerText = data.dew + " °C";
+                }
             }
 
             setInterval(fetchData, 2000);
@@ -81,11 +49,23 @@ async def dashboard():
         </script>
     </head>
     <body>
-        <h1>🌡️ PLC LIVE MONITOR</h1>
+        <h1>📡 MONITORING PLC</h1>
 
-        <div class="box">Temp: <span id="temp">--</span></div>
-        <div class="box">Hum: <span id="hum">--</span></div>
-        <div class="box">Dew: <span id="dew">--</span></div>
+        <div class="box">
+            <div class="label">Temperatura</div>
+            <div id="temp">--</div>
+        </div>
+
+        <div class="box">
+            <div class="label">Wilgotność</div>
+            <div id="hum">--</div>
+        </div>
+
+        <div class="box">
+            <div class="label">Punkt rosy</div>
+            <div id="dew">--</div>
+        </div>
+
     </body>
     </html>
     """
