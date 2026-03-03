@@ -24,15 +24,21 @@ def save_to_csv(record):
     filename = f"data_{today}.csv"
     file_exists = os.path.isfile(filename)
 
-    with open(filename, mode="a", newline="") as file:
-        writer = csv.writer(file)
+    with open(filename, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file, delimiter=';')
 
         if not file_exists:
-            writer.writerow(["Data", "Godzina", "Temperatura", "Wilgotnosc", "Punkt_Rosy"])
+            writer.writerow([
+                "Data i czas",
+                "Temperatura [°C]",
+                "Wilgotność [%]",
+                "Punkt rosy [°C]"
+            ])
+
+        full_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         writer.writerow([
-            today,
-            record["time"],
+            full_datetime,
             record["temp"],
             record["hum"],
             record["dew"]
@@ -244,4 +250,5 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
 
