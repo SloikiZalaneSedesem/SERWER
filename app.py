@@ -178,7 +178,7 @@ canvas {
 <h1>📡 MONITORING PLC</h1>
 
 <div class="top-bar">
-    <a href="/download">⬇ Pobierz dzisiejszy raport CSV</a>
+    <a href="/download">⬇Raport z 10min CSV</a>
 </div>
 
 <div class="values">
@@ -286,5 +286,6 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
 
 
