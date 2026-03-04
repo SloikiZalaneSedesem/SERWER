@@ -44,17 +44,16 @@ def save_to_csv(record):
 
         full_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-temp = str(round(record["temp"], 2)).replace(".", ",")
-hum = str(round(record["hum"], 2)).replace(".", ",")
-dew = str(round(record["dew"], 2)).replace(".", ",")
+        temp = str(round(record["temp"], 2)).replace(".", ",")
+        hum = str(round(record["hum"], 2)).replace(".", ",")
+        dew = str(round(record["dew"], 2)).replace(".", ",")
 
-writer.writerow([
-    full_datetime,
-    temp,
-    hum,
-    dew
-])
-
+        writer.writerow([
+            full_datetime,
+            temp,
+            hum,
+            dew
+        ])
 # =========================
 # ODBIÓR DANYCH
 # =========================
@@ -287,4 +286,5 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
 
