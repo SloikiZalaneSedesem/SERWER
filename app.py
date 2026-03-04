@@ -54,6 +54,7 @@ def save_to_csv(record):
             hum,
             dew
         ])
+    
 # =========================
 # ODBIÓR DANYCH
 # =========================
@@ -95,15 +96,52 @@ async def get_history():
 # =========================
 @app.get("/download")
 async def download_file():
+    excel_file = generate_excel_report()
+
+    if excel_file and os.path.isfile(excel_file):
+        return FileResponse(
+            excel_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=excel_file
+        )
+
+    return {"error": "Brak danych"}
+
+def generate_excel_report():
     today = datetime.now().strftime("%Y-%m-%d")
-    filename = f"data_{today}.csv"
+    csv_filename = f"data_{today}.csv"
+    excel_filename = f"report_{today}.xlsx"
 
-    if os.path.isfile(filename):
-        return FileResponse(filename, media_type="text/csv", filename=filename)
+    if not os.path.isfile(csv_filename):
+        return None
 
-    return {"error": "Brak pliku"}
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Raport"
 
+    red_fill = PatternFill(start_color="FF9999",
+                           end_color="FF9999",
+                           fill_type="solid")
 
+    with open(csv_filename, newline='', encoding="utf-8-sig") as file:
+        reader = csv.reader(file, delimiter=';')
+
+        for row_index, row in enumerate(reader, start=1):
+            for col_index, value in enumerate(row, start=1):
+                cell = ws.cell(row=row_index, column=col_index)
+                cell.value = value
+
+                # Kolorowanie temperatury (kolumna 2, bez nagłówka)
+                if row_index > 1 and col_index == 2:
+                    try:
+                        temp_value = float(str(value).replace(",", "."))
+                        if temp_value > 30:
+                            cell.fill = red_fill
+                    except:
+                        pass
+
+    wb.save(excel_filename)
+    return excel_filename
 # =========================
 # DASHBOARD
 # =========================
@@ -286,6 +324,7 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
 
 
 
