@@ -112,10 +112,12 @@ async def dashboard():
 
 <style>
 body { background:#111; color:white; font-family:Arial; text-align:center; }
+h1 { margin-top:20px; }
+.values { margin:20px; }
+.box { padding:15px 25px; margin:10px; display:inline-block; background:#222; border-radius:8px; }
+.alarm { background:#5c0000 !important; box-shadow:0 0 15px red; }
 .chart { max-width:900px; margin:30px auto; }
 canvas { height:250px !important; }
-.box { padding:15px; margin:10px; display:inline-block; background:#222; border-radius:8px; }
-.alarm { background:#5c0000 !important; }
 </style>
 </head>
 
@@ -123,18 +125,29 @@ canvas { height:250px !important; }
 
 <h1>Monitoring PLC (SQLite)</h1>
 
-<div class="box" id="tempBox">Temp: <span id="tempNow">--</span> °C</div>
-<div class="box">Wilg: <span id="humNow">--</span> %</div>
-<div class="box">Rosa: <span id="dewNow">--</span> °C</div>
+<div class="values">
+    <div class="box" id="tempBox">🌡 Temp: <span id="tempNow">--</span> °C</div>
+    <div class="box">💧 Wilg: <span id="humNow">--</span> %</div>
+    <div class="box">🌫 Rosa: <span id="dewNow">--</span> °C</div>
+</div>
 
 <div class="chart"><canvas id="tempChart"></canvas></div>
+<div class="chart"><canvas id="humChart"></canvas></div>
+<div class="chart"><canvas id="dewChart"></canvas></div>
 
 <script>
-const chart = new Chart(document.getElementById('tempChart'), {
-    type:'line',
-    data:{labels:[], datasets:[{label:'Temp', data:[], borderColor:'lime'}]},
-    options:{animation:false}
-});
+
+function createChart(id,label,color){
+    return new Chart(document.getElementById(id),{
+        type:'line',
+        data:{labels:[],datasets:[{label:label,data:[],borderColor:color,tension:0.4,pointRadius:0}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false}
+    });
+}
+
+const tempChart=createChart("tempChart","Temperatura","lime");
+const humChart=createChart("humChart","Wilgotność","cyan");
+const dewChart=createChart("dewChart","Punkt rosy","orange");
 
 async function update(){
     const res = await fetch('/api/history');
@@ -143,6 +156,8 @@ async function update(){
 
     const labels = data.map(d => d.time);
     const temps = data.map(d => d.temp);
+    const hums = data.map(d => d.hum);
+    const dews = data.map(d => d.dew);
 
     const last = data[data.length-1];
 
@@ -157,19 +172,25 @@ async function update(){
         tempBox.classList.remove("alarm");
     }
 
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = temps;
-    chart.update();
+    function apply(chart, values){
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+    }
+
+    apply(tempChart, temps);
+    apply(humChart, hums);
+    apply(dewChart, dews);
 }
 
 setInterval(update, 10000);
 update();
+
 </script>
 
 </body>
 </html>
 """
-
 
 # =========================
 # START
@@ -177,3 +198,4 @@ update();
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
+
