@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from datetime import datetime
 from fastapi import FastAPI
@@ -35,7 +34,7 @@ init_db()
 
 
 # =========================
-# MODEL
+# MODEL DANYCH
 # =========================
 class PLCData(BaseModel):
     temp: float
@@ -65,25 +64,22 @@ async def receive_data(data: PLCData):
 
 
 # =========================
-# POBIERANIE DANYCH (ostatnia godzina)
+# POBIERANIE HISTORII Z ZAKRESEM CZASU
 # =========================
 @app.get("/api/history")
-async def get_history():
+async def get_history(hours: int = 1):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT timestamp, temp, hum, dew
         FROM measurements
-        ORDER BY id DESC
-        LIMIT 360
-    """)
+        WHERE timestamp >= datetime('now', ?)
+        ORDER BY timestamp ASC
+    """, (f"-{hours} hours",))
 
     rows = cursor.fetchall()
     conn.close()
-
-    # odwracamy żeby były rosnąco
-    rows.reverse()
 
     data = []
     for row in rows:
@@ -107,23 +103,30 @@ async def dashboard():
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Monitoring PLC</title>
+<title>Monitoring PLC (SQLite)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { background:#111; color:white; font-family:Arial; text-align:center; }
 h1 { margin-top:20px; }
 .values { margin:20px; }
-.box { padding:15px 25px; margin:10px; display:inline-block; background:#222; border-radius:8px; }
+.box { padding:15px 25px; margin:10px; display:inline-block; background:#222; border-radius:8px; transition:0.3s; }
 .alarm { background:#5c0000 !important; box-shadow:0 0 15px red; }
 .chart { max-width:900px; margin:30px auto; }
 canvas { height:250px !important; }
+button { padding:8px 15px; margin:5px; cursor:pointer; }
 </style>
 </head>
 
 <body>
 
 <h1>Monitoring PLC (SQLite)</h1>
+
+<div>
+    <button onclick="setRange(1)">1h</button>
+    <button onclick="setRange(6)">6h</button>
+    <button onclick="setRange(24)">24h</button>
+</div>
 
 <div class="values">
     <div class="box" id="tempBox">🌡 Temp: <span id="tempNow">--</span> °C</div>
@@ -136,6 +139,13 @@ canvas { height:250px !important; }
 <div class="chart"><canvas id="dewChart"></canvas></div>
 
 <script>
+
+let currentHours = 1;
+
+function setRange(hours){
+    currentHours = hours;
+    update();
+}
 
 function createChart(id,label,color){
     return new Chart(document.getElementById(id),{
@@ -150,7 +160,7 @@ const humChart=createChart("humChart","Wilgotność","cyan");
 const dewChart=createChart("dewChart","Punkt rosy","orange");
 
 async function update(){
-    const res = await fetch('/api/history');
+    const res = await fetch('/api/history?hours=' + currentHours);
     const data = await res.json();
     if(data.length === 0) return;
 
@@ -192,10 +202,10 @@ update();
 </html>
 """
 
+
 # =========================
 # START
 # =========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
+    port = int(__import__("os").environ.get("PORT", 10000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
-
